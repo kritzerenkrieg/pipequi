@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pipequi — native PipeWire equalizer GUI</title>
+<meta name="description" content="pipequi is a parametric equalizer for Linux that runs inside PipeWire itself. Drag points on a curve, hear it live, and nothing stays running in the background.">
+<meta property="og:title" content="pipequi">
+<meta property="og:description" content="Native PipeWire equalizer GUI. A parametric EQ that runs inside PipeWire, with no background process.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://pipequi.kuritzu.de/screenshot.png">
+<meta name="theme-color" content="#398ee7">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&family=Noto+Sans+Mono&display=swap" rel="stylesheet">
+<style>
+/* Greybird (light) and Greybird-dark, the default XFCE themes */
+:root{
+  --desk1:#4a6d8f;--desk2:#1d2d3f;
+  --panel:#e6e6e6;--panel-text:#3c3c3c;--panel-line:#b8b8b8;
+  --bg:#cecece;--base:#fcfcfc;--text:#3c3c3c;--dim:#6d6d6d;
+  --border:#a8a8a8;--border-dark:#8f8f8f;
+  --title1:#e8e8e8;--title2:#cfcfcf;
+  --btn1:#f4f4f4;--btn2:#dcdcdc;--btn-hover1:#fbfbfb;--btn-hover2:#e7e7e7;
+  --sel:#398ee7;--sel-text:#ffffff;--link:#2a76c6;
+  --frame:#e4e4e4;--shadow:0 12px 40px rgba(0,0,0,.45);
+  --sans:"Noto Sans","Cantarell","DejaVu Sans",sans-serif;
+  --mono:"Noto Sans Mono","DejaVu Sans Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --desk1:#2c3e50;--desk2:#0f161e;
+  --panel:#2b2e2f;--panel-text:#dcdcdc;--panel-line:#1a1c1d;
+  --bg:#3b3e3f;--base:#2a2c2d;--text:#e2e2e2;--dim:#a8a8a8;
+  --border:#1f2122;--border-dark:#151617;
+  --title1:#45494a;--title2:#353839;
+  --btn1:#4a4e4f;--btn2:#3d4142;--btn-hover1:#555a5b;--btn-hover2:#474b4c;
+  --link:#6cb0f5;--frame:#333637;
+}}
+*{box-sizing:border-box}
+html{font-size:15px}
+body{margin:0;min-height:100vh;font:1rem/1.6 var(--sans);color:var(--text);
+  background:radial-gradient(ellipse at 30% 20%,var(--desk1),var(--desk2) 75%) fixed;}
+a{color:var(--link)}
+
+/* xfce4-panel */
+.panel{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:4px;height:30px;padding:0 6px;
+  background:var(--panel);color:var(--panel-text);border-bottom:1px solid var(--panel-line);font-size:.9rem}
+.panel .item{display:flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:3px;color:inherit;text-decoration:none;white-space:nowrap}
+.panel .item:hover{background:var(--sel);color:var(--sel-text)}
+.panel .item.task{border:1px solid var(--panel-line);background:var(--btn2)}
+.panel .grow{flex:1}
+.panel img{width:16px;height:16px}
+
+/* a GTK window */
+.desktop{padding:34px 16px 48px}
+.window{max-width:1000px;margin:0 auto;background:var(--bg);border:1px solid var(--border-dark);border-radius:6px 6px 3px 3px;box-shadow:var(--shadow);overflow:hidden}
+.titlebar{display:flex;align-items:center;height:34px;padding:0 6px 0 10px;border-bottom:1px solid var(--border);
+  background:linear-gradient(var(--title1),var(--title2));font-weight:700;font-size:.92rem}
+.titlebar img{width:16px;height:16px;margin-right:8px}
+.titlebar .t{flex:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.titlebar .ctl{display:flex;gap:2px}
+.titlebar .ctl span{width:24px;height:22px;display:grid;place-items:center;border-radius:3px;font-weight:400;color:var(--dim)}
+.titlebar .ctl span:last-child:hover{background:#d9534f;color:#fff}
+.menubar{display:flex;gap:2px;padding:2px 4px;border-bottom:1px solid var(--border);font-size:.92rem}
+.menubar a{white-space:nowrap;padding:3px 9px;border-radius:3px;color:var(--text);text-decoration:none}
+.menubar a:hover{background:var(--sel);color:var(--sel-text)}
+.content{padding:18px}
+
+.btn{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border:1px solid var(--border-dark);border-radius:3px;
+  background:linear-gradient(var(--btn1),var(--btn2));color:var(--text);text-decoration:none;font-size:.95rem;box-shadow:inset 0 1px rgba(255,255,255,.25)}
+.btn:hover{background:linear-gradient(var(--btn-hover1),var(--btn-hover2))}
+.btn.suggested{background:linear-gradient(#55a1ee,var(--sel));border-color:#2a6fbd;color:#fff}
+.btn.suggested:hover{background:linear-gradient(#6aaef1,#4a98ea)}
+
+.hero{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.hero img.icon{width:64px;height:64px}
+.hero h1{margin:0;font-size:1.7rem;line-height:1.2}
+.hero p{margin:4px 0 0;color:var(--dim)}
+.hero .grow{flex:1;min-width:240px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.shot{border:1px solid var(--border-dark);border-radius:4px;overflow:hidden;background:#2d2d2d;margin-bottom:18px}
+.shot img{display:block;width:100%;height:auto}
+
+/* GtkFrame with a label */
+fieldset{margin:0 0 16px;padding:12px 16px 14px;border:1px solid var(--border);border-radius:4px;background:var(--frame)}
+legend{padding:0 6px;font-weight:700}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 28px}
+.grid div{padding:8px 0;border-top:1px solid var(--border)}
+.grid div:nth-child(-n+2){border-top:0}
+.grid b{display:block}
+.grid span{color:var(--dim);font-size:.95rem}
+pre,code{font-family:var(--mono)}
+code{font-size:.92em;padding:1px 4px;border-radius:3px;background:var(--base);border:1px solid var(--border)}
+pre{margin:8px 0;padding:10px 12px;background:var(--base);border:1px solid var(--border);border-radius:3px;overflow-x:auto;font-size:.92rem}
+ol,ul{margin:6px 0;padding-left:22px}
+li{margin:3px 0}
+.dim{color:var(--dim)}
+
+/* GtkStatusbar */
+.statusbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:4px 10px;border-top:1px solid var(--border);font-size:.87rem;color:var(--dim)}
+.statusbar a{color:inherit}
+
+@media (max-width:640px){
+  .desktop{padding:16px 8px 32px}
+  .grid{grid-template-columns:1fr}
+  .grid div:nth-child(2){border-top:1px solid var(--border)}
+  .panel .hide-sm{display:none}
+  .menubar{overflow-x:auto;scrollbar-width:none}
+  .menubar::-webkit-scrollbar{display:none}
+}
+</style>
+</head>
+<body>
+<div class="panel">
+  <a class="item" href="https://kuritzu.de/"><img src="favicon.svg" alt="">Applications</a>
+  <a class="item task" href="/">pipequi</a>
+  <span class="grow"></span>
+  <a class="item hide-sm" href="https://github.com/kritzerenkrieg/pipequi">GitHub</a>
+  <a class="item" href="https://kuritzu.de/">kuritzu.de</a>
+</div>
+
+<div class="desktop">
+  <main class="window">
+    <div class="titlebar">
+      <img src="favicon.svg" alt="">
+      <span class="t">pipequi — Native PipeWire equalizer</span>
+      <span class="ctl" aria-hidden="true"><span>–</span><span>□</span><span>✕</span></span>
+    </div>
+    <nav class="menubar">
+      <a href="#features">Features</a><a href="#install">Install</a><a href="#how">How it works</a><a href="#requirements">Requirements</a><a href="https://github.com/kritzerenkrieg/pipequi">Source</a>
+    </nav>
+
+    <div class="content">
+      <div class="hero">
+        <img class="icon" src="favicon.svg" alt="">
+        <div class="grow">
+          <h1>pipequi</h1>
+          <p>A parametric equalizer for Linux that runs inside PipeWire itself. Drag points on a curve, hear it live, and close the window: nothing of pipequi stays running.</p>
+        </div>
+        <div class="actions">
+          <a class="btn suggested" href="https://github.com/kritzerenkrieg/pipequi/releases/latest">Download .deb</a>
+          <a class="btn" href="https://github.com/kritzerenkrieg/pipequi">Source code</a>
+        </div>
+      </div>
+
+      <div class="shot"><img src="screenshot.png" width="997" height="556" alt="pipequi's window: an equalizer curve with six draggable bands, the selected band's type, frequency, gain and Q, a preamp slider and the output device"></div>
+
+      <fieldset id="features">
+        <legend>Features</legend>
+        <div class="grid">
+          <div><b>No background process</b><span>The EQ is a PipeWire filter-chain. The window only edits it, so you can close it any time.</span></div>
+          <div><b>Live, without restarts</b><span>Every change reaches the running filter at once. Bluetooth headphones stay connected.</span></div>
+          <div><b>Parametric bands</b><span>Peak, low shelf and high shelf. Add, drag, widen and remove points right on the curve.</span></div>
+          <div><b>True curve guides</b><span>A dashed line from each point to where the combined curve really sits at that frequency.</span></div>
+          <div><b>Preamp with Auto</b><span>One click lowers the level by your biggest boost, so loud songs don't distort.</span></div>
+          <div><b>One-click setup</b><span>Set up keeps the output you were using and reconnects Bluetooth. Remove undoes it.</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset id="install">
+        <legend>Install</legend>
+        <p>On Debian or Ubuntu, download the <code>.deb</code> from the <a href="https://github.com/kritzerenkrieg/pipequi/releases/latest">latest release</a> and install it:</p>
+        <pre>sudo apt install ./pipequi_*_all.deb</pre>
+        <p>On other distributions, run it from a checkout. This adds a <code>pipequi</code> command and a menu entry for your user:</p>
+        <pre>git clone https://github.com/kritzerenkrieg/pipequi
+cd pipequi &amp;&amp; ./install.sh</pre>
+        <p class="dim">Then open pipequi and press <b>Set up</b>. Sound stops for a second while PipeWire restarts once.</p>
+      </fieldset>
+
+      <fieldset id="how">
+        <legend>How it works</legend>
+        <ol>
+          <li><b>Set up</b> writes <code>~/.config/pipewire/pipewire.conf.d/pipequi.conf</code> and restarts PipeWire once. A new output, “Equalizer (pipequi)”, becomes your default and plays into the device you were using.</li>
+          <li>The filter holds a fixed pool of 12 peak, 4 low-shelf and 4 high-shelf slots. Unused slots sit at 0 dB, so adding a band or changing its type never needs another restart.</li>
+          <li>Each change goes to the running filter with <code>pw-cli</code> and is saved back to the config file, so it is still there after a reboot.</li>
+        </ol>
+      </fieldset>
+
+      <fieldset id="requirements">
+        <legend>Requirements</legend>
+        <ul>
+          <li>PipeWire with WirePlumber, run as systemd user services (the default on current Debian, Ubuntu, Fedora and Arch).</li>
+          <li>PipeWire's tools <code>pw-cli</code>, <code>pw-dump</code> and <code>pw-metadata</code>.</li>
+          <li>Python 3.8+ with PyGObject and GTK 3.</li>
+          <li class="dim">Optional: <code>bluetoothctl</code>, to bring Bluetooth headphones back after the one restart.</li>
+        </ul>
+      </fieldset>
+    </div>
+
+    <div class="statusbar">
+      <span>pipequi · MIT licensed · Python and GTK 3</span>
+      <span><a href="https://github.com/kritzerenkrieg/pipequi">GitHub</a> · <a href="https://github.com/kritzerenkrieg/pipequi/releases">Releases</a> · <a href="https://kuritzu.de/">kuritzu.de</a></span>
+    </div>
+  </main>
+</div>
+</body>
+</html>
