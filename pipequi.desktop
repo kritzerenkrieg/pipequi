@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=pipequi
+GenericName=Equalizer
+Comment=Native PipeWire equalizer
+Exec=pipequi
+Icon=multimedia-volume-control
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Settings;
+Keywords=equalizer;eq;pipewire;audio;
